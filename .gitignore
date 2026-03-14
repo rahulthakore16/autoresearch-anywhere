@@ -1,0 +1,15 @@
+autoresearch-results.tsv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
