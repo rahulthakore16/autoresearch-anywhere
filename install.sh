@@ -75,10 +75,15 @@ merge_claude_permissions() {
   if has_cmd jq; then
     local tmp
     tmp="$(mktemp)"
-    jq --argjson new "$json_array" '
+    if jq --argjson new "$json_array" '
       .permissions //= {} |
       .permissions.allow = ((.permissions.allow // []) + $new | unique)
-    ' "$file" > "$tmp" && mv "$tmp" "$file"
+    ' "$file" > "$tmp"; then
+      mv "$tmp" "$file"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
   elif has_cmd python3; then
     python3 -c "
 import json, sys
@@ -104,10 +109,13 @@ with open(sys.argv[2], 'w') as f:
 # ---------------------------------------------------------------------------
 CLAUDE_CORE_RULES=(
   "Bash(git add *)"
+  "Bash(git checkout *)"
   "Bash(git commit *)"
-  "Bash(git revert *)"
-  "Bash(git log *)"
   "Bash(git diff *)"
+  "Bash(git log *)"
+  "Bash(git revert *)"
+  "Bash(git show *)"
+  "Bash(git stash *)"
   "Bash(git status *)"
   "Edit"
   "Write"
@@ -143,7 +151,7 @@ configure_codex_permissions() {
   local config_file="$HOME/.codex/config.toml"
   mkdir -p "$(dirname "$config_file")"
   if [[ -f "$config_file" ]] && grep -q 'approval_policy' "$config_file"; then
-    sed 's/approval_policy *= *"[^"]*"/approval_policy = "on-request"/' "$config_file" > "${config_file}.tmp" \
+    sed 's/^approval_policy *= *"[^"]*"/approval_policy = "on-request"/' "$config_file" > "${config_file}.tmp" \
       && mv "${config_file}.tmp" "$config_file"
   else
     printf 'approval_policy = "on-request"\n' >> "$config_file"

@@ -74,7 +74,7 @@ The autonomous loop requires uninterrupted tool access. The installer configures
 
 | Platform | Required permissions |
 |----------|---------------------|
-| Claude Code | `Bash(git add *)`, `Bash(git commit *)`, `Bash(git revert *)`, `Bash(git log *)`, `Bash(git diff *)`, `Bash(git status *)`, `Edit`, `Write` |
+| Claude Code | `Bash(git add *)`, `Bash(git checkout *)`, `Bash(git commit *)`, `Bash(git diff *)`, `Bash(git log *)`, `Bash(git revert *)`, `Bash(git show *)`, `Bash(git stash *)`, `Bash(git status *)`, `Edit`, `Write` |
 | Codex CLI | `approval_policy = "on-request"` in `~/.codex/config.toml` |
 | OpenCode | No special configuration needed |
 

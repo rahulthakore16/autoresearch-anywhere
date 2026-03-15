@@ -239,6 +239,41 @@ test_permissions_always_created() {
   pass "permissions always created"
 }
 
+test_codex_permissions_created() {
+  local tmp_home
+  tmp_home="$(mktemp -d)"
+
+  HOME="$tmp_home" "$INSTALL_SCRIPT" --codex >/dev/null
+
+  local config="$tmp_home/.codex/config.toml"
+  assert_file "$config"
+  grep -q '^approval_policy = "on-request"' "$config" || fail "codex config missing approval_policy"
+
+  pass "codex permissions created"
+}
+
+test_codex_permissions_update_existing() {
+  local tmp_home
+  tmp_home="$(mktemp -d)"
+
+  # Pre-populate with a different policy
+  mkdir -p "$tmp_home/.codex"
+  printf 'model = "o4-mini"\napproval_policy = "full-auto"\n' > "$tmp_home/.codex/config.toml"
+
+  HOME="$tmp_home" "$INSTALL_SCRIPT" --codex >/dev/null
+
+  local config="$tmp_home/.codex/config.toml"
+  grep -q '^approval_policy = "on-request"' "$config" || fail "codex config not updated"
+  # Existing keys preserved
+  grep -q '^model = "o4-mini"' "$config" || fail "codex config lost existing keys"
+  # Comment lines with approval_policy should not be modified
+  if grep -q '# approval_policy' "$config"; then
+    fail "sed should not match commented lines"
+  fi
+
+  pass "codex permissions update existing"
+}
+
 main() {
   test_repo_sanity
   test_project_install
@@ -252,6 +287,8 @@ main() {
   test_full_auto_permissions
   test_project_permissions
   test_permissions_always_created
+  test_codex_permissions_created
+  test_codex_permissions_update_existing
   printf 'All tests passed.\n'
 }
 
