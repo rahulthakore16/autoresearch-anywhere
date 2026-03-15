@@ -1,7 +1,7 @@
 ---
 name: autoresearch
 description: Autonomous goal-directed iteration for Claude Code, OpenCode, and Codex CLI. Use when the user wants the agent to work autonomously, iterate until done, keep improving, or run repeated measured experiments.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Autoresearch
@@ -65,6 +65,25 @@ LOOP:
 5. Prefer simpler solutions when results are equal.
 6. Use git history as memory for what worked and what failed.
 7. Do not ask whether to continue unless the user has to resolve a real blocker.
+
+## Permissions & Autonomy
+
+The autonomous loop requires uninterrupted tool access. The installer configures permissions automatically, but if a permission prompt blocks the loop, inform the user of the fix instead of asking "should I continue?".
+
+**Required tool access per platform:**
+
+| Platform | Required permissions |
+|----------|---------------------|
+| Claude Code | `Bash(git add *)`, `Bash(git checkout *)`, `Bash(git commit *)`, `Bash(git diff *)`, `Bash(git log *)`, `Bash(git revert *)`, `Bash(git show *)`, `Bash(git stash *)`, `Bash(git status *)`, `Edit`, `Write` |
+| Codex CLI | `approval_policy = "on-request"` in `~/.codex/config.toml` |
+| OpenCode | No special configuration needed |
+
+If a permission prompt interrupts the loop:
+1. Do **not** ask the user "should I continue?" — that defeats the purpose of autonomy.
+2. Instead, inform the user: "Permission prompts are blocking autonomous operation. Run `./install.sh --<platform>` to configure permissions, or see the README for manual setup."
+3. Then proceed with the current iteration if possible.
+
+Permissions are configured automatically by `install.sh`. For sandboxed or trusted environments, use `--full-auto` to allow all bash commands.
 
 ## References
 
