@@ -25,6 +25,12 @@ assert_dir() {
   [[ -d "$path" ]] || fail "expected directory: $path"
 }
 
+# Helper: check that a JSON file contains a given string
+assert_json_contains() {
+  local file="$1" pattern="$2"
+  grep -q "$pattern" "$file" || fail "expected $file to contain: $pattern"
+}
+
 test_repo_sanity() {
   assert_dir "$SKILL_DIR"
   assert_file "$SKILL_DIR/SKILL.md"
@@ -127,6 +133,112 @@ test_smoke_workspace_bootstrap() {
   pass "smoke workspace bootstrap"
 }
 
+# ---------------------------------------------------------------------------
+# Permission tests
+# ---------------------------------------------------------------------------
+
+test_claude_permissions_created() {
+  local tmp_home
+  tmp_home="$(mktemp -d)"
+
+  HOME="$tmp_home" "$INSTALL_SCRIPT" --claude >/dev/null
+
+  local settings="$tmp_home/.claude/settings.json"
+  assert_file "$settings"
+  assert_json_contains "$settings" '"Bash(git commit \*)"'
+  assert_json_contains "$settings" '"Edit"'
+  assert_json_contains "$settings" '"Write"'
+
+  pass "claude permissions created"
+}
+
+test_claude_permissions_merge_existing() {
+  local tmp_home
+  tmp_home="$(mktemp -d)"
+
+  # Pre-populate settings with existing data
+  mkdir -p "$tmp_home/.claude"
+  printf '{"theme":"dark","permissions":{"allow":["Bash(npm test *)"]}}\n' > "$tmp_home/.claude/settings.json"
+
+  HOME="$tmp_home" "$INSTALL_SCRIPT" --claude >/dev/null
+
+  local settings="$tmp_home/.claude/settings.json"
+  # Existing rules preserved
+  assert_json_contains "$settings" '"Bash(npm test \*)"'
+  # New rules added
+  assert_json_contains "$settings" '"Bash(git commit \*)"'
+  # Existing top-level keys preserved
+  assert_json_contains "$settings" '"theme"'
+
+  pass "claude permissions merge existing"
+}
+
+test_claude_permissions_idempotent() {
+  local tmp_home
+  tmp_home="$(mktemp -d)"
+
+  HOME="$tmp_home" "$INSTALL_SCRIPT" --claude >/dev/null
+  HOME="$tmp_home" "$INSTALL_SCRIPT" --claude >/dev/null
+
+  local settings="$tmp_home/.claude/settings.json"
+  # Count occurrences of "Edit" — should appear exactly once
+  local count
+  count="$(grep -o '"Edit"' "$settings" | wc -l | tr -d ' ')"
+  [[ "$count" -eq 1 ]] || fail "permissions not idempotent: Edit appears $count times"
+
+  pass "claude permissions idempotent"
+}
+
+test_full_auto_permissions() {
+  local tmp_home
+  tmp_home="$(mktemp -d)"
+
+  HOME="$tmp_home" "$INSTALL_SCRIPT" --claude --full-auto >/dev/null
+
+  local settings="$tmp_home/.claude/settings.json"
+  assert_file "$settings"
+  # Full-auto should have bare "Bash" (not "Bash(git ...)")
+  assert_json_contains "$settings" '"Bash"'
+  # Should NOT contain git-specific rules
+  if grep -q '"Bash(git commit \*)"' "$settings"; then
+    fail "full-auto should not contain git-specific rules"
+  fi
+
+  pass "full-auto permissions"
+}
+
+test_project_permissions() {
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+
+  (
+    cd "$tmpdir"
+    "$INSTALL_SCRIPT" --project >/dev/null
+    local settings="$tmpdir/.claude/settings.json"
+    assert_file "$settings"
+    assert_json_contains "$settings" '"Bash(git commit \*)"'
+    assert_json_contains "$settings" '"Edit"'
+  )
+
+  pass "project permissions"
+}
+
+test_permissions_always_created() {
+  local tmp_home stub_bin
+  tmp_home="$(mktemp -d)"
+  stub_bin="$(mktemp -d)"
+
+  ln -s /usr/bin/true "$stub_bin/claude"
+
+  env HOME="$tmp_home" PATH="$stub_bin:/usr/bin:/bin" "$INSTALL_SCRIPT" >/dev/null
+
+  local settings="$tmp_home/.claude/settings.json"
+  assert_file "$settings"
+  assert_json_contains "$settings" '"Bash(git commit \*)"'
+
+  pass "permissions always created"
+}
+
 main() {
   test_repo_sanity
   test_project_install
@@ -134,6 +246,12 @@ main() {
   test_auto_install_detects_only_stubbed_clis
   test_auto_install_fails_without_supported_clis
   test_smoke_workspace_bootstrap
+  test_claude_permissions_created
+  test_claude_permissions_merge_existing
+  test_claude_permissions_idempotent
+  test_full_auto_permissions
+  test_project_permissions
+  test_permissions_always_created
   printf 'All tests passed.\n'
 }
 

@@ -76,6 +76,12 @@ Metric: coverage percent, higher is better
 Verify: npm test -- --coverage
 ```
 
+Permissions for autonomous operation are configured automatically during install. Use `--full-auto` to allow all bash commands in sandboxed environments:
+
+```bash
+./install.sh --claude --full-auto
+```
+
 ## How the Skill Works
 
 1. Read the full in-scope context.
@@ -111,6 +117,63 @@ If Codex is running in a sandbox or container, make sure:
 - the working directory is a git repository
 - the verification command is available in the container
 - any required runtime dependencies are already installed
+
+## Permissions
+
+The installer automatically configures tool permissions for autonomous operation. No extra flags are needed — every `./install.sh --claude` sets up the required permissions.
+
+### What gets configured
+
+**Claude Code** (`~/.claude/settings.json` or `.claude/settings.json` for `--project`):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git revert *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git status *)",
+      "Edit",
+      "Write"
+    ]
+  }
+}
+```
+
+**Codex CLI** (`~/.codex/config.toml`):
+
+```toml
+approval_policy = "on-request"
+```
+
+### Full-auto mode
+
+For sandboxed or trusted environments where you want all bash commands allowed:
+
+```bash
+./install.sh --claude --full-auto
+```
+
+This sets `"Bash"` (unrestricted) instead of git-specific rules.
+
+### Adding project-specific verification commands
+
+If your verification command (e.g., `npm test`) also needs permission, add it to `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test *)"
+    ]
+  }
+}
+```
+
+Or re-run the installer with `--full-auto` to allow all bash commands.
 
 ## Testing
 
